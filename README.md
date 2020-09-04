@@ -15,7 +15,7 @@ against Seq1. Among all results, choose the Mutant Sequence MS(k) with the best 
 The master (node) read all the data from the file, which contains the weight, seq1, and all the other seq2 that resides in the file.<br>
 The master split the sequences evenly between each process using “bucket sequence holder”.
 
-### Bucket Sequence Holder:
+### Bucket Sequence Holder (Load Balancing):
 Bucket sequence holder is a pre-defined data structure which i built to split all the sequences evenly between the nodes.<br>
 The bucket’s length is at the same size of the number of processes which gets allocated, each cell in the bucket hold pointer to struct which holds array of sequences, 
 total number of sequences and total length of all sequences.
@@ -41,11 +41,16 @@ For each sequence there are a large amount of comparisons that must be made, so 
 The kernel function gets as input:  seq1, seq2, offset, hyphen and result array.
 Each thread in the block gets a location in seq2 to compare itself to the same location in seq1 and after the comparisons the corresponding threads gets into the location in the result array and set the relevant weight with sign.
 
-## General idea of cuda’s work:
+## General idea of cuda’s work (Version 1):
 
 <div>
       <img src="Documentation/cuda_demo.png" alt="Game Logo" height="200" >      
 </div>
+
+## General idea of cuda’s work (Version 2):
+In the second vertion there's an matrix 26*26 which holds all the results of each comparison between pair of characters.
+This matrix is send to cuda and gets copied into the shared memory, each comparison get checked in the matrix and the result added to the 
+correspond location in the result array.
 
 ## Improvements:
 
@@ -59,22 +64,26 @@ using kantor’s function.
 All the kernel by defualt running on the default stream, i used cuda stream to run the kernel on different streams which improve performance significantly.
 
 ## pseudo: 
+The pseduo is applied on the two versions, the only different's how the kernel handle the comparison.
 ```
 for each sequence in bucket:
 algorithm: 
 	input : Sequence M , Sequence S, Weight W, Offset O, Result Array R
 	output : best alignment score
 	
-	#pragma omp for 
-	for each offset  in Len(M) – Len(S):   			
+	#pragma omp parallel for 
+	for each offset in Len(M) – Len(S):  			
 		comupte_on_gpu(M, S , W, O) {
-			for each hyphen in Len(S):
-				R = kernel_function();	
-		}  
+			R = kernel_function(M, S, W, O); 
+		}
 		alignment_score  = get_best_score(R);
-		
+	
 	return {alignment_score.n, alignment_score.k};
  ```
 
 ## Conclutions: 
+<strong> version 1:</strong>
 Running on GTX 1050 TOTAL TIME TAKEN 1.840640 sec
+
+<strong> version 2: </strong>
+Running on GTX 1050 TOTAL TIME TAKEN 0.417290 sec
