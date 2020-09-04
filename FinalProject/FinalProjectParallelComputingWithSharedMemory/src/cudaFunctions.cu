@@ -16,7 +16,7 @@ __global__ void calc_best_score(char *d_main_seq, char *d_sec_seq, float *d_scor
 	int tid = blockDim.x * blockIdx.x + threadIdx.x;
 	__shared__ float _score_matrix[RES_SIZE * RES_SIZE];
 
-	for (int i = tid; i < RES_SIZE * RES_SIZE; i++) {
+	for (int i = threadIdx.x; i < RES_SIZE * RES_SIZE; i+=blockDim.x) {
 		_score_matrix[i] = d_score_matrix[i];
 	}
 	
