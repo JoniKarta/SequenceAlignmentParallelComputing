@@ -6,20 +6,11 @@
  */
 #include "utility.h"
 
+const char *conservative[] = { "NDEQ", "NEQK", "STA", "MILV", "QHRK", "NHQK",
+		"FYW", "HY", "MILF" };
 
-const char* conservative[] = {
-		"NDEQ","NEQK","STA",
-		"MILV","QHRK","NHQK",
-		"FYW","HY","MILF"
-};
-
-
-const char* semiConservative[] = {
-		"SAG","ATV","CSA",
-		"SGND","STPA","STNK",
-		"NEQHRK","NDEQHK","SNDEQK",
-		"HFY","FVLIM"
-};
+const char *semiConservative[] = { "SAG", "ATV", "CSA", "SGND", "STPA", "STNK",
+		"NEQHRK", "NDEQHK", "SNDEQK", "HFY", "FVLIM" };
 
 holder_t** read_from_file(holder_t **holders, char **main_sequence, weight_t *weights, int num_proc, int *num_of_sequences) {
 
@@ -30,9 +21,9 @@ holder_t** read_from_file(holder_t **holders, char **main_sequence, weight_t *we
 	FILE *file = fopen("input.txt", "r");
 
 	// File validation.
-	if (!file){
+	if (!file) {
 		printf("Could not open the file\n");
-		MPI_Abort(MPI_COMM_WORLD,__LINE__);
+		MPI_Abort(MPI_COMM_WORLD, __LINE__);
 	}
 
 	// Read the weights from the file.
@@ -46,6 +37,7 @@ holder_t** read_from_file(holder_t **holders, char **main_sequence, weight_t *we
 
 	// Allocate memory for the main sequence.
 	*main_sequence = (char*) calloc(strlen(charBuffer) + 1, sizeof(char));
+
 	strcpy(*main_sequence, charBuffer);
 
 	// Initialize the holders which holds all the sequences.
@@ -67,7 +59,7 @@ holder_t** read_from_file(holder_t **holders, char **main_sequence, weight_t *we
 		holders[idx]->sequences = (char**) realloc(holders[idx]->sequences, (holders[idx]->num_of_sequences + 1) * sizeof(char*));
 
 		// Allocate space for the sequence in sequences
-		holders[idx]->sequences[holders[idx]->num_of_sequences] = (char*) calloc(strlen(charBuffer) + 1, sizeof(char));
+		holders[idx]->sequences[holders[idx]->num_of_sequences] =(char*) calloc(strlen(charBuffer) + 1, sizeof(char));
 
 		// Copy the buffer to the sequence in the indexed holder
 		strcpy(holders[idx]->sequences[holders[idx]->num_of_sequences], charBuffer);
@@ -130,20 +122,18 @@ int send_tasks(holder_t **holders, int num_proc, int tag) {
 			MPI_Send(&sequence_length, 1, MPI_INT, i, tag, MPI_COMM_WORLD);
 
 			// Send the sequence
-			MPI_Send(holders[i]->sequences[j], sequence_length,
-			MPI_CHAR, i, tag, MPI_COMM_WORLD);
+			MPI_Send(holders[i]->sequences[j], sequence_length, MPI_CHAR, i, tag, MPI_COMM_WORLD);
 		}
 	}
 	return totalTasks;
 }
 
-char** receive_tasks(int *num_of_sequences, int source, int tag,
-		MPI_Status *status) {
+char** receive_tasks(int *num_of_sequences, int source, int tag, MPI_Status *status) {
 	int sequence_length;
 
 	// Receive the number of sequences each process have
 	MPI_Recv(num_of_sequences, 1, MPI_INT, source, tag, MPI_COMM_WORLD, status);
-	
+
 	// Allocate the the result
 	char **result = (char**) malloc(sizeof(char*) * (*num_of_sequences));
 
@@ -151,8 +141,7 @@ char** receive_tasks(int *num_of_sequences, int source, int tag,
 	for (int i = 0; i < *num_of_sequences; i++) {
 		MPI_Recv(&sequence_length, 1, MPI_INT, source, tag, MPI_COMM_WORLD, status);
 		result[i] = (char*) calloc(sequence_length + 1, sizeof(char));
-		MPI_Recv(result[i], sequence_length, MPI_CHAR, source, tag,
-		MPI_COMM_WORLD, status);
+		MPI_Recv(result[i], sequence_length, MPI_CHAR, source, tag, MPI_COMM_WORLD, status);
 	}
 
 	return result;
@@ -178,9 +167,9 @@ holder_t** init_holders(holder_t **holders, int numOfHolders) {
 
 	for (int i = 0; i < numOfHolders; i++) {
 		holders[i] = (holder_t*) calloc(1, sizeof(holder_t));
-		if (!holders[i]){
+		if (!holders[i]) {
 			printf("Allocate holder failed\n");
-			MPI_Abort(MPI_COMM_WORLD,__LINE__);
+			MPI_Abort(MPI_COMM_WORLD, __LINE__);
 		}
 	}
 	return holders;
@@ -194,22 +183,23 @@ void receive_result(alignment_t *score, int p, int tag, MPI_Status *status) {
 	MPI_Recv(score, 1, alignmentMPIType(), p, tag, MPI_COMM_WORLD, status);
 }
 
-void write_result_to_file(holder_t** holder, int num_proc, alignment_t *all_scores) {
+void write_result_to_file(holder_t **holder, int num_proc,
+		alignment_t *all_scores) {
 	FILE *f = fopen("result.txt", "w+");
 	if (!f)
 		return;
-	for(int i = 0, m = 0; i < num_proc; i++) // Loop over each process
-		for (int j = 0; j < holder[i]->num_of_sequences; j++,m++){ // for each sequence 
-			fprintf(f, "n = %d, k = %d \t NS2 = %s\n",  all_scores[m].n, all_scores[m].k, holder[i]->sequences[j]);
+	for (int i = 0, m = 0; i < num_proc; i++) // Loop over each process
+		for (int j = 0; j < holder[i]->num_of_sequences; j++, m++) { // for each sequence
+			fprintf(f, "n = %d, k = %d \t NS2 = %s\n", all_scores[m].n, all_scores[m].k, holder[i]->sequences[j]);
 			printResult(&all_scores[m]);
 		}
 	fclose(f);
 }
 
 void printResult(alignment_t *score) {
-	printf("Best score is: offset = %d, hyphen Index = %d\n", score->n,score->k);
+	printf("Best score is: offset = %d, hyphen Index = %d\n", score->n,
+			score->k);
 }
-
 
 MPI_Datatype alignmentMPIType() {
 	alignment_t score;
@@ -241,25 +231,25 @@ MPI_Datatype weightMPIType() {
 	return WeightsMPIType;
 }
 
-bool pair_in_group(char a, char b, const char* group[], size_t group_size)
-{
-	for(int i = 0 ; i < group_size ; i++){
-		if(strchr(group[i],a) && strchr(group[i],b))
+bool pair_in_group(char a, char b, const char *group[], size_t group_size) {
+	for (int i = 0; i < group_size; i++) {
+		if (strchr(group[i], a) && strchr(group[i], b))
 			return true;
 	}
 	return false;
 }
 
-void create_result_score(float score_matrix[RES_SIZE][RES_SIZE], weight_t* weights){
-	for(int i = 0; i < RES_SIZE; i++){
-		for(int j = 0; j < RES_SIZE; j++){
-			if(i + 'A' == j + 'A'){
+void create_result_score(float score_matrix[RES_SIZE][RES_SIZE],
+		weight_t *weights) {
+	for (int i = 0; i < RES_SIZE; i++) {
+		for (int j = 0; j < RES_SIZE; j++) {
+			if (i + 'A' == j + 'A') {
 				score_matrix[i][j] = weights->w1;
-			}else if(pair_in_group(i + 'A', j + 'A',conservative,CONSERVATIVE)) {
+			} else if (pair_in_group(i + 'A', j + 'A', conservative, CONSERVATIVE)) {
 				score_matrix[i][j] = -weights->w2;
-			}else if(pair_in_group(i + 'A', j + 'A', semiConservative,SEMI_CONSERVATIVE)){
+			} else if (pair_in_group(i + 'A', j + 'A', semiConservative, SEMI_CONSERVATIVE)) {
 				score_matrix[i][j] = -weights->w3;
-			}else{
+			} else {
 				score_matrix[i][j] = -weights->w4;
 			}
 		}
@@ -267,46 +257,40 @@ void create_result_score(float score_matrix[RES_SIZE][RES_SIZE], weight_t* weigh
 
 }
 
-void calc_score(char *d_main_seq, int main_seq_len, char *h_sec_seq,float* score_matrix, weight_t *weight, alignment_t *score) {
+void calc_score(char *d_main_seq, int main_seq_len, char *h_sec_seq, float *score_matrix, weight_t *weight, alignment_t *score) {
 
 	char *d_sec_seq = allocate_sec_sequence_on_gpu(h_sec_seq);
 	float max_score = FLT_MIN_EXP;
 	int sec_seq_len = strlen(h_sec_seq);
-	//omp_set_num_threads(12);
-	#pragma omp parallel for
+
+#pragma omp parallel for
 	for (int offset = 0; offset < main_seq_len - sec_seq_len; offset++) {
-		float *results = compute_on_gpu(d_main_seq, d_sec_seq, score_matrix, weight, offset,sec_seq_len,omp_get_thread_num());
-		for (int hyphen_res = 1; hyphen_res <= sec_seq_len; hyphen_res++){
+		float *results = compute_on_gpu(d_main_seq, d_sec_seq, score_matrix, weight, offset, sec_seq_len, omp_get_thread_num());
+		for (int hyphen_res = 1; hyphen_res <= sec_seq_len; hyphen_res++) {
 			float current_score = results[hyphen_res - 1];
-		//#pragma omp critical
-		if (current_score > max_score) {
-			max_score = current_score;
-			score->n = offset;
-			score->k = hyphen_res;
+
+			#pragma omp critical
+			if (current_score > max_score) {
+				max_score = current_score;
+				score->n = offset;
+				score->k = hyphen_res;
 			}
 		}
 		free(results);
 	}
-
-	//printf("%f\n",max_score);
 	free_sec_sequence(d_sec_seq);
 
 }
 
-
-void free_host_memory(holder_t** holder,int num_holders, alignment_t* score){
+void free_host_memory(holder_t **holder, int num_holders, alignment_t *score) {
 	free(score);
-	
-	for(int i = 0; i < num_holders;i++){
-		for(int j = 0; j < holder[i]->num_of_sequences; j++){
+
+	for (int i = 0; i < num_holders; i++) {
+		for (int j = 0; j < holder[i]->num_of_sequences; j++) {
 			free(holder[i]->sequences[j]);
 		}
 		free(holder[i]->sequences);
 	}
 	free(holder);
 }
-
-
-
-
 

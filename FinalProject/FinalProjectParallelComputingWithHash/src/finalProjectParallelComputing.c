@@ -14,24 +14,21 @@
 #include "mpi.h"
 #include "utility.h"
 
-
 int main(int argc, char *argv[]) {
-	int my_rank, p, tag = 0; 
-	MPI_Status status; 
-	
-	char **sequences, *main_sequence,*d_main_seq;
-	int *hash_con, *hash_semi_con,*d_hash_con, *d_hash_semi_con;
-	int num_of_sequence, num_of_scores = 0;
+	int my_rank, p, tag = 0,num_of_sequence, num_of_scores = 0;
+	int *hash_con, *hash_semi_con, *d_hash_con, *d_hash_semi_con;
+	char **sequences, *main_sequence, *d_main_seq;
+	double startTime, endTime;
 	alignment_t *all_scores, current_score = { 0 };
 	weight_t weights = { 0 }, *d_weight;
 	holder_t **seq_holder = { 0 };
-	double startTime, endTime;
 
+	MPI_Status status;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 
-	if(p != NODES_NUM){
+	if (p != NODES_NUM) {
 		printf("The program can run only two processes only\n");
 		MPI_Abort(MPI_COMM_WORLD, __LINE__);
 	}
@@ -76,22 +73,20 @@ int main(int argc, char *argv[]) {
 
 		// Receive all tasks
 		for (int i = 1; i < p; i++) {
-			for (int j = 0; j < seq_holder[i]->num_of_sequences; j++, num_of_scores++) {
+			for (int j = 0; j < seq_holder[i]->num_of_sequences;j++, num_of_scores++) {
 				receive_result(&current_score, i, tag, &status);
-				memcpy(all_scores + num_of_scores, &current_score,sizeof(alignment_t));
+				memcpy(all_scores + num_of_scores, &current_score, sizeof(alignment_t));
 			}
 		}
 		endTime = MPI_Wtime();
 		// Free all memory from the device
-		free_shared_resources(d_main_seq, d_hash_con, d_hash_semi_con,d_weight);
+		free_shared_resources(d_main_seq, d_hash_con, d_hash_semi_con, d_weight);
 
 		// Write the result to file
 		write_result_to_file(seq_holder, p, all_scores);
 
 		// Free all host's memory
 		free_host_memory(seq_holder, p, hash_con, hash_semi_con, all_scores);
-
-
 
 		printf("TOTAL TIME TAKEN: %f\n", endTime - startTime);
 
@@ -128,7 +123,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		// Free all memory from the device
-		free_shared_resources(d_main_seq, d_hash_con, d_hash_semi_con,d_weight);
+		free_shared_resources(d_main_seq, d_hash_con, d_hash_semi_con, d_weight);
 	}
 
 	/* shut down MPI */
